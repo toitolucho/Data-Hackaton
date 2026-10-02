@@ -1,0 +1,39 @@
+# =============================================================================
+# Pipeline: Sample Staging to Bronze to Silver
+# =============================================================================
+# Reads from staging tables (produced by the ingestion pipelines), applies:
+#   - Bronze layer: pure append pass-through from staging streaming tables
+#   - Silver layer: SCD Type 2 via apply_changes with DQ enforcement
+#
+# Supports all staging source types:
+#   - File-based (Auto Loader staging) -> Bronze streaming table -> Silver
+#   - Federated (Lakehouse Federation staging) -> Bronze streaming table -> Silver
+#   - Lakeflow Connect CDC -> Bronze streaming table (skipChangeCommits) -> Silver
+#   - Lakeflow Connect snapshot -> Bronze materialized view -> Silver (snapshot CDC)
+# =============================================================================
+
+resources:
+  pipelines:
+    pipeline_staging_to_silver:
+      name: sample_staging_to_silver
+      catalog: ${var.catalog}
+      schema: default
+      channel: PREVIEW
+      photon: true
+      serverless: true
+      edition: ADVANCED
+      configuration:
+        "pipelines.pipelineType": "WORKSPACE"
+        "pipeline.catalog": ${var.catalog}
+        "pipeline.project_root": "/Workspace/${var.business_unit}/.bundle/${bundle.name}/${bundle.target}/files"
+      libraries:
+        - file:
+            path: ./../../src/pipelines/staging_to_silver/bronze.py
+        - file:
+            path: ./../../src/pipelines/staging_to_silver/silver.py
+      notifications:
+        - email_recipients:
+            - sample@bofifederalbank.com
+          alerts:
+            - on-update-fatal-failure
+      budget_policy_id: ${var.budget_policy_id}

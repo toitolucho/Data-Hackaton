@@ -1,0 +1,282 @@
+# =============================================================================
+# AXOS Databricks Asset Bundle - root configuration
+# =============================================================================
+# One bundle, five environment targets (dev, test, stage, preprod, prod),
+# each mapped to its own Azure subscription / workspace / catalog.
+#
+# Design notes:
+#  - Resource definitions live in resources/**.yml (pulled in via `include`),
+#    not inline here, so this file stays readable as the project grows.
+#  - Compute is declared ONCE as a complex variable (`job_cluster`) and
+#    overridden per target. Swap classic -> serverless later in one place.
+#  - Catalog is a variable resolved per target, matching the AXOS
+#    single-catalog-per-environment model.
+# =============================================================================
+
+bundle:
+  name: sample-ingestion_to_silver
+
+include:
+  - resources/jobs/*.yml
+  - resources/pipelines/*.yml
+
+# -----------------------------------------------------------------------------
+# Variables: defaults here, overridden in each target below.
+# -----------------------------------------------------------------------------
+variables:
+  business_unit:
+    description: >-
+      BU folder off the workspace root (enterprise|marketing|commercial|consumer).
+      No default — must be set so nothing deploys to the wrong BU folder.
+
+  catalog:
+    description: Unity Catalog catalog for this ingestion
+    default: enterprise_dev
+
+  cost_center:
+    description: >-
+      Cost center for chargeback/cost attribution. Defaults to business_unit
+      since AXOS charges back by BU — override per target only if a repo's
+      cost center genuinely differs from its BU.
+    default: ${var.business_unit}
+
+  schema:
+    description: >-
+      Default schema/database for this bundle's resources. "default" exists
+      in every catalog, so this needs no per-target override.
+    default: default
+
+  job_runner_sp:
+    description: >-
+      Application ID of the per-environment job-runner service principal used in
+      run_as for non-dev targets. Override per target or pass at deploy time.
+    default: ""
+
+  sql_warehouse_id:
+    description: SQL warehouse ID for sql_task steps. Set per target.
+    default: ""
+
+  alert_email:
+    description: Address (or distribution list) for job failure notifications.
+    default: ""
+
+  # Serverless USAGE/BUDGET policy ID (NOT a compute/cluster policy).
+  budget_policy_id:
+    description: Serverless usage/budget policy ID for the job. Set per target.
+    default: ""
+
+  # CLASSIC job-cluster spec, declared as a COMPLEX variable so the whole spec
+  # is one overridable object. Most tasks in this template run SERVERLESS (no
+  # cluster) — this variable now drives only the classic-compute task (task 4
+  # in sample_job), kept to demonstrate classic + serverless coexisting.
+  #
+  # Cluster policy: enforced on classic job compute, resolved by NAME rather
+  # than a raw ID — "Enterprise Job Runner SP Policy" is a fixed naming
+  # convention that every environment's workspace is expected to have (each
+  # with its own policy object/ID behind that same name). Override per
+  # target only if an environment genuinely needs a different policy, e.g.:
+  #
+  #   targets:
+  #     stage:
+  #       variables:
+  #         job_cluster_policy_id:
+  #           lookup:
+  #             cluster_policy: "Some Other Policy Name"
+  #
+  # A lookup is resolved eagerly at validate/deploy time, so every target's
+  # workspace must actually have a policy named "Enterprise Job Runner SP
+  # Policy" (or an override) before it can validate/deploy.
+  job_cluster_policy_id:
+    description: Cluster policy ID enforced on classic job compute, resolved by name.
+    lookup:
+      cluster_policy: "Enterprise Job Runner SP Policy"
+
+  job_cluster:
+    description: Classic job cluster spec (used only by the classic task).
+    type: complex
+    default:
+      spark_version: 17.3.x-scala2.13
+      node_type_id: Standard_D4pds_v6
+      autoscale:
+        min_workers: 1
+        max_workers: 8
+      data_security_mode: USER_ISOLATION
+      azure_attributes:
+        availability: SPOT_WITH_FALLBACK_AZURE
+        first_on_demand: 1
+        spot_bid_max_price: 100
+      policy_id: ${var.job_cluster_policy_id}
+
+# -----------------------------------------------------------------------------
+# Presets: bundle-wide defaults applied to every resource the bundle deploys.
+# `tags` here are stamped on all jobs/pipelines automatically — set once,
+# applied everywhere — so cost attribution per BU/environment can't be missed
+# on an individual resource. Resource-level tags merge on top of these.
+#
+# Note: these reliably reach Databricks jobs/clusters and Databricks-side
+# usage/billing (system tables). Propagation to Azure Cost Management depends
+# on resource type — verify against current docs if finance reconciles there.
+# -----------------------------------------------------------------------------
+presets:
+  tags:
+    project: ${bundle.name}
+    environment: ${bundle.target}
+    business_unit: ${var.business_unit}
+    cost_center: ${var.cost_center}
+    managed_by: databricks-asset-bundle
+
+# -----------------------------------------------------------------------------
+# Targets: one per AXOS environment, plus dev_sandbox for per-developer
+# iteration. Each sets its own root_path under the BU folder. Fill in host +
+# catalog per subscription. run_as is the job-runner SP in shared targets.
+# -----------------------------------------------------------------------------
+targets:
+
+  # Per-developer isolation, opt-in only (NOT the default target). Use this
+  # when multiple developers need to work on the same code/pipeline at once
+  # without stepping on each other. Development mode: resources name-prefixed
+  # with [dev user], schedules paused, deployed under the user's own subfolder
+  # inside the BU folder.
+  #
+  # Caution: an SDP pipeline deployed here and one deployed via `dev` are
+  # different pipelines, but if they're ever pointed at the same
+  # catalog.schema.table, Databricks locks that table to whichever pipeline
+  # created it first, and the other fails with an ownership conflict. Don't
+  # switch a single pipeline back and forth between dev_sandbox and dev.
+  dev_sandbox:
+    mode: development
+    workspace:
+      host: https://adb-7405617824787548.8.azuredatabricks.net/
+      root_path: /Users/${workspace.current_user.userName}/.bundle/${bundle.name}/dev_sandbox
+    variables:
+      catalog: enterprise_dev
+      business_unit: enterprise # should map to enterprise, commercial, consumer, marketing
+      budget_policy_id: bc1feabe-7abc-471c-992b-6fccf8f47821 # policy ID
+      sql_warehouse_id: e4b47476d01105fe # from URL when viewing SQL Warehouse compute
+
+  # Shared, prod-like deployment on the SAME dev workspace. Production mode:
+  # no prefixing, schedules live, SP-owned, shared path. Used to validate
+  # prod behavior before promoting out of dev. This is the default target.
+  dev:
+    mode: production
+    default: true
+    workspace:
+      host: https://adb-7405617824787548.8.azuredatabricks.net/   # same host as dev_sandbox
+      root_path: /Workspace/${var.business_unit}/.bundle/${bundle.name}/dev
+    variables:
+      catalog: enterprise_dev
+      business_unit: enterprise # should map to enterprise, commercial, consumer, marketing
+      budget_policy_id: bc1feabe-7abc-471c-992b-6fccf8f47821
+      job_runner_sp: 8b491584-f9d2-4f59-b68d-2986984d39b5
+      alert_email: ben.marchant@bofifederalbank.com
+      sql_warehouse_id: e4b47476d01105fe # from URL when viewing SQL Warehouse compute
+    run_as:
+      service_principal_name: ${var.job_runner_sp}
+    # run_as needs CAN_MANAGE on the deployed resources AND access to the
+    # bundle's workspace folder (root_path) to read the notebooks/files it
+    # runs — granting it here covers both.
+    permissions:
+      - service_principal_name: ${var.job_runner_sp}
+        level: CAN_MANAGE
+      - user_name: ${workspace.current_user.userName}
+        level: CAN_MANAGE
+
+
+  test:
+    mode: production
+    workspace:
+      host: https://adb-TEST-WORKSPACE-ID.NN.azuredatabricks.net
+      root_path: /Workspace/${var.business_unit}/.bundle/${bundle.name}/test
+    variables:
+      catalog: test_catalog
+      job_cluster:
+        spark_version: 15.4.x-scala2.12
+        node_type_id: Standard_D4ds_v5
+        autoscale:
+          min_workers: 1
+          max_workers: 4
+        data_security_mode: SINGLE_USER
+        azure_attributes:
+          availability: SPOT_WITH_FALLBACK_AZURE
+          first_on_demand: 1
+          spot_bid_max_price: 100
+        policy_id: ${var.job_cluster_policy_id}
+    # Shared, prod-like target owned by the job-runner SP. Schedules/triggers
+    # are deployed PAUSED so jobs only run when someone explicitly turns them
+    # on (or triggers a manual run). Note: an individual resource that sets
+    # pause_status: UNPAUSED on its own schedule overrides this preset.
+    #
+    # IMPORTANT: confirm with `databricks bundle validate -t test -o json` that
+    # the bundle-wide presets.tags still apply here. If target-level presets
+    # REPLACE rather than merge with the top-level presets block, re-add the
+    # tags under this presets mapping so cost attribution isn't lost for test.
+    presets:
+      trigger_pause_status: PAUSED
+    run_as:
+      service_principal_name: ${var.job_runner_sp}
+
+  stage:
+    mode: production
+    workspace:
+      host: https://adb-STAGE-WORKSPACE-ID.NN.azuredatabricks.net
+      root_path: /Workspace/${var.business_unit}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: stage_catalog
+      job_cluster:
+        spark_version: 15.4.x-scala2.12
+        node_type_id: Standard_D8ds_v5
+        autoscale:
+          min_workers: 2
+          max_workers: 6
+        data_security_mode: SINGLE_USER
+        azure_attributes:
+          availability: SPOT_WITH_FALLBACK_AZURE
+          first_on_demand: 1
+          spot_bid_max_price: 100
+        policy_id: ${var.job_cluster_policy_id}
+    run_as:
+      service_principal_name: ${var.job_runner_sp}
+
+  preprod:
+    mode: production
+    workspace:
+      host: https://adb-PREPROD-WORKSPACE-ID.NN.azuredatabricks.net
+      root_path: /Workspace/${var.business_unit}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: preprod_catalog
+      job_cluster:
+        spark_version: 15.4.x-scala2.12
+        node_type_id: Standard_D8ds_v5
+        autoscale:
+          min_workers: 2
+          max_workers: 8
+        data_security_mode: SINGLE_USER
+        azure_attributes:
+          availability: SPOT_WITH_FALLBACK_AZURE
+          first_on_demand: 1
+          spot_bid_max_price: 100
+        policy_id: ${var.job_cluster_policy_id}
+    run_as:
+      service_principal_name: ${var.job_runner_sp}
+
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-PROD-WORKSPACE-ID.NN.azuredatabricks.net
+      root_path: /Workspace/${var.business_unit}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: prod_catalog
+      job_cluster:
+        spark_version: 15.4.x-scala2.12
+        node_type_id: Standard_D8ds_v5
+        autoscale:
+          min_workers: 2
+          max_workers: 12
+        data_security_mode: SINGLE_USER
+        azure_attributes:
+          availability: SPOT_WITH_FALLBACK_AZURE
+          first_on_demand: 1
+          spot_bid_max_price: 100
+        policy_id: ${var.job_cluster_policy_id}
+    run_as:
+      service_principal_name: ${var.job_runner_sp}

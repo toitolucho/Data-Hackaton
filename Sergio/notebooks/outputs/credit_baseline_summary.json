@@ -1,0 +1,57 @@
+{
+  "politica": {
+    "version": "0.1.0-provisional",
+    "sintetica": true,
+    "max_dti": 0.2
+  },
+  "solicitud_tipo": {
+    "product": "personal_loan",
+    "months": 36,
+    "amount_income_multiple": 3.0
+  },
+  "clientes": 150000,
+  "resultado_pct": {
+    "eligible": 44.24,
+    "needs_data": 27.2,
+    "needs_review": 18.46,
+    "declined": 10.1
+  },
+  "derivacion_humano": {
+    "B0": 1.0,
+    "motor": 0.18455333333333335,
+    "motor_incl_needs_data": 0.45657333333333333
+  },
+  "b1_preaprobados_rechazados_por_motor_pct": 3.9049171626796073,
+  "sensibilidad_ingreso_declarado_pct": {
+    "pasan_a_provisional": {
+      "+10%": 0.0,
+      "+25%": 20.2,
+      "+50%": 40.7,
+      "+100%": 63.0
+    },
+    "pasan_a_revision": {
+      "+10%": 15.6,
+      "+25%": 11.4,
+      "+50%": 8.8,
+      "+100%": 5.1
+    },
+    "siguen_rechazados": {
+      "+10%": 84.4,
+      "+25%": 68.3,
+      "+50%": 50.6,
+      "+100%": 31.9
+    }
+  },
+  "supuestos_deuda": {
+    "card_min_payment_pct": 0.05,
+    "personal_loan_remaining_months": 36,
+    "mortgage_remaining_months": 180
+  },
+  "limites": [
+    "Politica sintetica y provisional; no hay verdad de terreno externa.",
+    "El dataset no trae cuotas: la deuda existente se estima con supuestos declarados.",
+    "Todos los productos de Mexico estan en USD; se convierten con la tasa de la ultima fecha.",
+    "credit_score no correlaciona con days_past_due: no se entrena modelo de riesgo.",
+    "Medicion offline sobre datos sinteticos, no mejora en produccion."
+  ]
+}

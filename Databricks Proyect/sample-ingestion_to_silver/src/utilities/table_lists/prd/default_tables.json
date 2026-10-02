@@ -1,0 +1,38 @@
+{
+  "source_catalog": "MY_SOURCE_DB",
+  "source_schema": "dbo",
+  "destination_schema": "staging_myapp",
+  "pipeline_resource_key": "pipeline_lakeflow_connect_to_staging",
+  "pipeline_name": "myapp_lc_to_staging",
+  "cluster": {
+    "node_type_id": "Standard_D4pds_v6",
+    "min_workers": 1,
+    "max_workers": 4
+  },
+  "tables": [
+    {
+      "source_table": "Customers",
+      "destination_table": "customers",
+      "cursor_columns": [
+        "ModifiedDate"
+      ],
+      "scd_type": "APPEND_ONLY"
+    },
+    {
+      "source_table": "Orders",
+      "destination_table": "orders",
+      "cursor_columns": [
+        "OrderDate"
+      ],
+      "scd_type": "APPEND_ONLY"
+    },
+    {
+      "source_table": "OrderLineItems",
+      "destination_table": "order_line_items",
+      "cursor_columns": [
+        "ModifiedDate"
+      ],
+      "scd_type": "APPEND_ONLY"
+    }
+  ]
+}

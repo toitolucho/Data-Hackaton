@@ -1,0 +1,39 @@
+# =============================================================================
+# Pipeline: Sample Lakeflow Connect Managed Ingestion to Staging
+# =============================================================================
+# Demonstrates Lakeflow Connect (managed ingestion) replicating from an
+# external database (e.g. SQL Server) into the staging schema.
+#
+# This is a MANAGED INGESTION pipeline (uses ingestion_definition) which is
+# technically separate from the SDP pipeline but logically part of the same
+# "ingestion to staging" layer.
+#
+# Add/remove table objects below to onboard new Lakeflow Connect sources.
+# NAMING: destination_table matches the source table name (lowercase).
+# =============================================================================
+
+resources:
+  pipelines:
+    pipeline_lakeflow_connect_to_staging:
+      name: sample_lakeflow_connect_to_staging
+      serverless: false
+      clusters:
+        - label: default
+          node_type_id: Standard_D4pds_v6
+          autoscale:
+            min_workers: 1
+            max_workers: 4
+      ingestion_definition:
+        connection_name: sample-connection-name
+        objects:
+          - table:
+              source_catalog: archive
+              source_schema: silverlake.jha
+              source_table: SAMPLE_TABLE
+              destination_catalog: ${var.catalog}
+              destination_schema: staging
+              destination_table: sample_table
+              table_configuration:
+                query_based_connector_config:
+                  cursor_columns:
+                    - JhaRecordId

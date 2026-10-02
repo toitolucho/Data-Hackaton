@@ -1,0 +1,61 @@
+# POLITICA DE ELEGIBILIDAD DE CREDITO - SINTETICA Y PROVISIONAL
+# Definida por el equipo para el hackathon. No es una politica bancaria real.
+# Los valores son parametros de partida; el equipo puede cambiarlos sin tocar el codigo.
+# La conversacion (LLM) NO decide ni inventa reglas: solo el motor determinista aplica este archivo.
+version: "0.1.0-provisional"
+synthetic: true
+
+# Tope de endeudamiento: cuota total (existente + nueva) sobre ingreso mensual.
+# Fuente: ejemplo dicho en la reunion (max. 20% del ingreso).
+max_dti: 0.20
+# Casos entre el limite y limite*(1+margen) van a revision humana en vez de rechazo automatico.
+borderline_margin: 0.10
+
+# Calificacion interna 1-5 a partir de credit_score (300-850). El puntaje 1 no recibe credito.
+score_bands:            # limite inferior inclusivo de cada banda
+  1: 0
+  2: 520
+  3: 600
+  4: 680
+  5: 760
+no_lending_bands: [1]
+
+# Tasa anual (%) = tasa_base(producto) + spread(banda) - descuento_relacion
+# tasa_base: promedio entre paises de products.interest_rate por tipo de producto
+base_rate_pct:
+  personal_loan: 20.0
+  credit_card: 31.5
+  mortgage: 9.0
+band_spread_pp:
+  2: 6.0
+  3: 3.0
+  4: 0.0
+  5: -2.0
+relationship_discount:
+  min_active_products: 3
+  discount_pp: 1.0
+
+# Reglas por morosidad (dias de mora maximos entre productos de credito del cliente)
+delinquency:
+  review_over_days: 30
+  decline_over_days: 90
+
+# Supuestos para estimar la cuota mensual de deudas existentes (el dataset no trae cuotas)
+existing_debt_assumptions:
+  card_min_payment_pct: 0.05      # de current_balance
+  personal_loan_remaining_months: 36
+  mortgage_remaining_months: 180
+
+# Solicitud tipo usada para el baseline
+baseline_request:
+  product: personal_loan
+  months: 36
+  amount_income_multiple: 3.0
+
+# Ingreso declarado en el chat: no verificado
+declared_income:
+  outcome_if_eligible: eligible_provisional   # sujeto a verificacion
+  max_uplift_without_review: 0.50             # aumentos declarados mayores van a revision
+
+# Atributos que NO pueden usarse en la decision (solo auditoria de equidad)
+protected_attributes: [gender, marital_status, education_level, detected_accent, date_of_birth]

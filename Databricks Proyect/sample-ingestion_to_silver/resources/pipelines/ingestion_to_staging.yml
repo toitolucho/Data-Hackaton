@@ -1,0 +1,39 @@
+# =============================================================================
+# Pipeline 1: Unified Ingestion to Staging
+# =============================================================================
+# Handles ALL ingestion source types and writes to the staging schema:
+#   - Flat files via Auto Loader (staging_autoloader.py)
+#   - Foreign federated tables via Lakehouse Federation (staging_federated.py)
+#
+# Lakeflow Connect sources (e.g. SQL Server CDC) are handled by a separate
+# managed ingestion pipeline (lakeflow_connect_to_staging.yml) because they
+# use ingestion_definition which is a different pipeline type from SDP.
+#
+# Together, this SDP pipeline + the managed ingestion pipeline form the
+# complete "ingestion to staging" layer.
+# =============================================================================
+
+resources:
+  pipelines:
+    pipeline_ingestion_to_staging:
+      name: sample_ingestion_to_staging
+      catalog: ${var.catalog}
+      schema: staging
+      channel: PREVIEW
+      photon: true
+      serverless: true
+      edition: ADVANCED
+      configuration:
+        "pipelines.pipelineType": "WORKSPACE"
+        "pipeline.project_root": "/Workspace/${var.business_unit}/.bundle/${bundle.name}/${bundle.target}/files"
+      libraries:
+        - file:
+            path: ./../../src/pipelines/ingestion_to_staging/staging_autoloader.py
+        - file:
+            path: ./../../src/pipelines/ingestion_to_staging/staging_federated.py
+      notifications:
+        - email_recipients:
+            - sample@bofifederalbank.com
+          alerts:
+            - on-update-fatal-failure
+      budget_policy_id: ${var.budget_policy_id}

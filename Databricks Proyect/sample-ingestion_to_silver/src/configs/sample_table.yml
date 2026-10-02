@@ -1,0 +1,57 @@
+# =============================================================================
+# sample_table — Sample Table Configuration Template
+# =============================================================================
+# Copy this file and fill in the values to onboard a new table.
+# The filename (without .yml) should match the source_table name.
+# =============================================================================
+
+- source_table: sample_table
+  description: "Sample table for demonstration"
+
+  staging_catalog: enterprise_dev
+  staging_schema: staging
+
+  source_catalog: enterprise_dev
+  source_schema: bronze
+
+  target_catalog_prefix: enterprise_dev
+  target_schema: silver
+
+  scd_2_key_list:
+    - KEY_COLUMN_1
+    - KEY_COLUMN_2
+
+  history_timestamp_source: JhaLoadTime
+  scd_type: 2
+  allow_missing_columns: false
+
+  scd_2_exclude_list:
+    - JhaLoadTime
+    - _rescued_data
+    - _staging_ingested_at
+    - _source_file_path
+    - _source_file_name
+    - _source_file_size
+    - _source_file_modified
+    - _bronze_ingested_at
+
+  silver_columns: ~
+  exclude_columns: ~
+  cluster_by: ~
+
+  data_quality_rules:
+    - description: "key_column_1_not_null"
+      expr: "`KEY_COLUMN_1` IS NOT NULL"
+    - description: "key_column_2_not_null"
+      expr: "`KEY_COLUMN_2` IS NOT NULL"
+
+  source_path: ~
+  file_format: ~
+  bronze_options: ~
+
+  tags:
+    domain: enterprise
+
+  ingestion_source:
+    load_mode: cdc
+    skip_change_commits: true

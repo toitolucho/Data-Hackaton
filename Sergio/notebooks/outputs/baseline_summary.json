@@ -1,0 +1,109 @@
+{
+  "definicion_disputa": [
+    "Cargo no reconocido",
+    "Cobro indebido"
+  ],
+  "operativo_disputas": {
+    "casos": 24491.0,
+    "con_resolucion_%": 22.93,
+    "sla_incumplido_%": 20.16,
+    "resolucion_dias_p50": 16.0,
+    "resolucion_dias_p95": 29.0,
+    "1a_respuesta_horas_p50": 37.0,
+    "escalados_%": 5.12,
+    "rechazados_%": 0.96,
+    "con_compensacion_%": 7.15,
+    "satisfaccion_media": 3.03,
+    "reincidentes_%": 14.99,
+    "monto_reclamado_mediana": 2520.6
+  },
+  "operativo_otras_quejas": {
+    "casos": 42604.0,
+    "con_resolucion_%": 22.85,
+    "sla_incumplido_%": 20.08,
+    "resolucion_dias_p50": 16.0,
+    "resolucion_dias_p95": 29.0,
+    "1a_respuesta_horas_p50": 38.0,
+    "escalados_%": 4.85,
+    "rechazados_%": 1.11,
+    "con_compensacion_%": 6.78,
+    "satisfaccion_media": 3.02,
+    "reincidentes_%": 15.05,
+    "monto_reclamado_mediana": 2542.39
+  },
+  "triaje_test": [
+    {
+      "modelo": "B0 aleatorio",
+      "pr_auc": 0.0009,
+      "roc_auc": 0.4968,
+      "alertas_pct": 1.0057,
+      "recall": 0.005,
+      "precision": 0.0004,
+      "umbral": 0.99
+    },
+    {
+      "modelo": "B1 regla (extranjero/rechazo/monto)",
+      "pr_auc": 0.0009,
+      "roc_auc": 0.4929,
+      "alertas_pct": 1.0128,
+      "recall": 0.0066,
+      "precision": 0.0006,
+      "umbral": 2.0009
+    },
+    {
+      "modelo": "B2 fraud_score",
+      "pr_auc": 0.5769,
+      "roc_auc": 0.7232,
+      "alertas_pct": 1.0124,
+      "recall": 0.5804,
+      "precision": 0.0504,
+      "umbral": 29.65
+    },
+    {
+      "modelo": "M1 GBM sin fraud_score",
+      "pr_auc": 0.0009,
+      "roc_auc": 0.5087,
+      "alertas_pct": 0.9905,
+      "recall": 0.0149,
+      "precision": 0.0013,
+      "umbral": 0.0134
+    },
+    {
+      "modelo": "M2 GBM con fraud_score",
+      "pr_auc": 0.5199,
+      "roc_auc": 0.8412,
+      "alertas_pct": 0.9895,
+      "recall": 0.5738,
+      "precision": 0.0509,
+      "umbral": 0.0138
+    }
+  ],
+  "split": [
+    {
+      "split": "train",
+      "filas": 2994597,
+      "fraudes": 3014,
+      "tasa_fraude_%": 0.101
+    },
+    {
+      "split": "val",
+      "filas": 743909,
+      "fraudes": 699,
+      "tasa_fraude_%": 0.094
+    },
+    {
+      "split": "test",
+      "filas": 686502,
+      "fraudes": 603,
+      "tasa_fraude_%": 0.088
+    }
+  ],
+  "presupuesto_revision": 0.01,
+  "seed": 42,
+  "limites": [
+    "Datos sintéticos; etiquetas is_fraud/fraud_score son del organizador.",
+    "Quejas sin transaction_id ni texto libre: no se puede etiquetar una disputa contra una transacción.",
+    "Pocos positivos de fraude (0,1%); resultados con alta varianza.",
+    "Medición offline, no mejora en producción."
+  ]
+}
